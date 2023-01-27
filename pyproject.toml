@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Transfer learning for Mutation Effect Prediction"
 authors = ["Tilman Hoffbauer <tilman.hoffbauer@rwth-aachen.de>"]
 license = "MIT"
+repository = "https://github.com/strodel-group/TransMEP"
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8,<3.11"

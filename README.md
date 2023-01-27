@@ -1,6 +1,5 @@
 # TransMEP - Transfer learning for Mutant Effect Prediction
 
-
 TransMep is a tool for using transfer learning embeddings from protein language models to train variant prediction models from existing mutagenesis data.
 It is focused on speed and simplicity of use.
 You just input your dataset and obtain a prediction model, accompanied by detailed reports on performance, hyperparameter optimization, training samples importance and even an attribution to individual mutations.
@@ -103,6 +102,89 @@ The supported reports are:
 - `mutation_attribution` This report estimates the effect of every single mutation of a mutant on the total value. The y-axis contains the mutations while the x-axis contains the variants. Each column sums up to the predicted target value of the variant.
 - `grid_search` Here, one can observe the estimated generalization error during grid search for various hyperparameter valuations ($\alpha$ and $\gamma$). If the optimum is close to the border, rerun the training process with larger parameter ranges. The colors are on a logarithmic scale.
 - `training_samples_importance` This report calculates the importance of each training sample for the prediction of a variant. Each row sums up to 1.
+
+## Usage Example
+This example is based on a dataset from [[Wu et al. 2019]](https://doi.org/10.1073/pnas.1901979116), which was also used in my [bachelor thesis as C75](https://github.com/Turakar/mutation-prediction).
+
+Let's first train a model on the provided example data.
+```
+$ transmep train
+Path to save the model to (model-path): https://mutation-prediction.thoffbauer.de/transmep/c-wt.txt
+Path to the wild type sequence file (wildtype-path): ^CAborted!
+(transmep-py3.10) [t@tpc transmep-publication]$ transmep train
+Path to save the model to (model-path): mymodel.pt
+Path to the wild type sequence file (wildtype-path): https://mutation-prediction.thoffbauer.de/transmep/c-wt.txt
+Path to the variants for training (variants-path): https://mutation-prediction.thoffbauer.de/transmep/c-variants-train.csv
+Minimum alpha hyperparameter (alpha-min) [0.0001]: 
+Maximum alpha hyperparameter (alpha-max) [100000.0]: 
+Number of alpha steps during grid search (alpha-steps) [50]: 
+Minimum gamma hyperparameter (gamma-min) [0.001]: 
+Maximum gamma hyperparameter (gamma-max) [1000000.0]: 
+Number of gamma steps during grid search (gamma-steps) [50]: 
+Number of iterations for repeated holdout during validation (validation-iterations) [1000]: 
+Number of validation iterations to process in one batch (batch-size) [100]: 
+Block size to process in one batch for distance matrix calculation (block-size) [100]: 
+Fraction of samples to use for validation during repeated holdout (holdout-fraction) [0.1]: 
+Path to save grid search output to, pass empty string for no output: mymodel-grid.npz
+Welcome to TransMEP!
+Loading dataset
+Loading protein language model (esm2_t30_150M_UR50D)
+Embedding training variants
+Embedding: 100%|██████████| 424/424 [00:10<00:00, 40.72it/s]
+Performing grid search for hyper parameters
+HPO: 100%|██████████| 10/10 [02:21<00:00, 14.12s/it]
+Grid search wall time: 141.4151s
+Fitting final model
+Final model trained & saved!
+```
+
+We will also check the grid search report.
+
+```
+$ transmep report
+? Which reports do you want to create? [Grid search report (grid_search)]
+? What output formats do you want? Output formats not supported by a report will be skipped quietly. done (2 selecti
+ons)
+? Path to the grid search output mymodel-grid.npz
+? Report file prefix mymodel
+Creating report grid_search
+All reports created!
+```
+
+You can find the report [here](https://mutation-prediction.thoffbauer.de/transmep/c-grid-search-plot.html).
+As we are satisfied with the result, we move on to finding promising new candidates:
+
+```
+$ transmep ucb
+Path to load the model from: mymodel.pt
+Path to the wild type sequence file: https://mutation-prediction.thoffbauer.de/transmep/c-wt.txt
+Kappa value for UCB. Higher kappa values lead to more exploration: 3
+Size of population per restart: 100
+How many initializations to try for genetic optimization: 10
+Maximum number of mutations to allow.: 5
+Comma separated list of positions that should be mutated. Set to 'all' to allow mutations on all positions: 32,46,49,51,53,56,97
+Criterion optimization: 100%|██████████| 10/10 [01:13<00:00,  7.39s/it]
+Rank 0 with UCB = 1.1940
+Y32G+F46S+I53D+L56K+V97N
+Rank 1 with UCB = 1.1917
+Y32G+F46S+I53G+L56K+V97E
+Rank 2 with UCB = 1.1215
+Y32A+F46S+I53T+L56A+V97E
+Rank 3 with UCB = 1.1201
+Y32S+F46A+I53D+L56A+V97R
+Rank 4 with UCB = 1.0993
+Y32E+I53D+L56V+V97R
+Rank 5 with UCB = 1.0981
+Y32I+I53D+L56S+V97S
+Rank 6 with UCB = 1.0935
+Y32T+I53D+V97R
+Rank 7 with UCB = 1.0876
+Y32S+I53E+V97R
+Rank 8 with UCB = 1.0827
+Y32P+F46Q+I53S+L56G+V97E
+Rank 9 with UCB = 1.0812
+Y32G+I53P+L56V+V97E
+```
 
 
 ## Contributing

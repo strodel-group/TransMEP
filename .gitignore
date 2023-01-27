@@ -1,0 +1,6 @@
+__pycache__/
+/.env
+/.idea/
+.ipynb_checkpoints/
+/dist/
+/requirements.txt

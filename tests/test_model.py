@@ -9,7 +9,15 @@ from transmep.foundation_model import load_foundation_model
 from transmep.model import Model
 
 
-def test_model():
+def test_model() -> None:
+    """
+    Test whether the Torch model is correctly implemented by comparing it
+    to the Gaussian Process regression implementation in scikit-learn.
+
+    :return: None
+    """
+
+    # Load example data
     train = load_dataset(
         "https://mutation-prediction.thoffbauer.de/transmep/c-wt.txt",
         "https://mutation-prediction.thoffbauer.de/transmep/c-variants-train.csv",
@@ -21,6 +29,8 @@ def test_model():
     alpha = 0.1
     gamma = 1
     foundation_model = "esm2_t30_150M_UR50D"
+
+    # Prepare embeddings
     transformer, alphabet = load_foundation_model(foundation_model)
     batch_converter = alphabet.get_batch_converter()
     device = get_device()
@@ -29,11 +39,16 @@ def test_model():
     test_embeddings = embed(test, transformer, batch_converter).cpu()
 
     with torch.no_grad():
+        # Fit the model
         torch_model = Model(foundation_model, transformer=transformer)
         torch_model.fit(alpha, gamma, train_embeddings, torch.tensor(train.y), device=device)
         torch_model = torch_model.to(device)
+
+        # Assert that we do not get NaNs
         assert not torch.isnan(torch_model.dual_coefficients).any()
         assert not torch.isnan(torch_model.train_kernel_cholesky).any()
+
+        # Collect predictions
         torch_mean = np.zeros((len(test),), dtype=np.float32)
         torch_std = np.zeros((len(test),), dtype=np.float32)
         for i in range(len(test)):
@@ -42,10 +57,10 @@ def test_model():
             torch_mean[i] = mean.cpu().numpy()[0]
             torch_std[i] = std.cpu().numpy()[0]
 
+    # Compare to scikit-learn
     sklearn_mean, sklearn_std = _predict_sklearn(
         train_embeddings.numpy(), train.y, test_embeddings.numpy(), alpha, gamma
     )
-
     assert np.allclose(torch_mean, sklearn_mean, atol=1e-2)
     assert np.allclose(torch_std, sklearn_std, atol=1e-2)
 

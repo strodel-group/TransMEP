@@ -24,6 +24,8 @@ from transmep.model import Model, load_model, save_model
 from transmep.optimize import grid_search_kr_rbf_batched, grid_search_kr_rbf_fork
 from transmep.questionary_validation import is_percentage, is_positive_int
 
+# This file implements the CLI interface for TransMEP using click.
+
 
 @click.group()
 def cli():
@@ -208,8 +210,10 @@ def train(
     training_size = int(len(dataset) * (1 - holdout_fraction))
     alphas = torch.logspace(math.log10(alpha_min), math.log10(alpha_max), alpha_steps, base=10)
     gammas = torch.logspace(math.log10(gamma_min), math.log10(gamma_max), gamma_steps, base=10)
+
     prior_time = time.time()
     if torch.cuda.is_available():
+        # On GPU, the batched approach is faster.
         best_alpha, best_gamma, scores = grid_search_kr_rbf_batched(
             embeddings,
             y,
@@ -222,11 +226,14 @@ def train(
             get_device(),
         )
     else:
+        # On CPU, the batched approach is faster.
         best_alpha, best_gamma, scores = grid_search_kr_rbf_fork(
             embeddings, y, alphas, gammas, validation_iterations, training_size
         )
     grid_search_time = time.time() - prior_time
     click.echo("Grid search wall time: %.4fs" % grid_search_time)
+
+    # Save grid search output if required
     if grid_search_output != "":
         with fsspec.open(grid_search_output, "wb") as fd:
             np.savez(
@@ -236,10 +243,11 @@ def train(
                 gammas=gammas.cpu().numpy(),
             )
 
+    # Fit a final model on the whole dataset
     click.echo("Fitting final model")
     with torch.no_grad():
         model = Model(foundation_model, transformer=transformer)
-        model.fit(best_alpha, best_gamma, embeddings, y, device=get_device(), block_size=block_size)
+        model.fit(best_alpha, best_gamma, embeddings, y, device=get_device())
     save_model(model, model_path)
 
     click.echo(
@@ -284,16 +292,21 @@ def train(
 def predict(
     model_path: str, wildtype_path: str, variants_path: str, output_path: str, batch_size: int
 ):
+    # Load model and dataset
     model, alphabet = load_model(model_path)
     device = get_device()
     model = model.eval().to(device)
     batch_converter = alphabet.get_batch_converter()
     dataset = load_dataset(wildtype_path, variants_path)
 
+    # Create and write predictions
     with torch.no_grad():
         with fsspec.open(output_path, "w") as fd:
+            # Prepare CSV writer
             writer = csv.DictWriter(fd, fieldnames=["mutations", "prediction", "prediction_std"])
             writer.writeheader()
+
+            # Iterate over dataset in batches
             for batch_start in tqdm(range(0, len(dataset), batch_size), desc="Predicting"):
                 batch_end = min(len(dataset), batch_start + batch_size)
                 variants = dataset.variants[batch_start:batch_end]
@@ -316,6 +329,9 @@ def predict(
 
 @cli.command(help="Create a detailed report")
 def report():
+    # This function unifies all reporting functionality.
+    # We first ask for the types of reports and the output formats.
+    # Depending on the report types, we then ask for additional inputs.
     report_ids = questionary.checkbox(
         "Which reports do you want to create?",
         [
@@ -341,6 +357,8 @@ def report():
             questionary.Choice("Console", "console"),
         ],
     ).ask()
+
+    # Ask for additional parameters that are required for some report types.
     params = {}
     if (
         "r2" in report_ids
@@ -366,6 +384,8 @@ def report():
         params["base_path"] = questionary.text("Report file prefix").ask()
     else:
         params["base_path"] = ""
+
+    # Call the corresponding report functions
     report_map = {
         "r2": reports.r2,
         "mutation_attribution": reports.mutation_attribution,
@@ -465,6 +485,7 @@ def ucb(
     min_diversity: float,
     max_generations: int,
 ):
+    # Load model and dataset and parse input arguments
     device = get_device()
     wildtype = load_wildtype(wildtype_path)
     if sites == "all":
@@ -475,6 +496,8 @@ def ucb(
         mutation_probability = None
     model, alphabet = load_model(model_path)
     model.to(device)
+
+    # Perform genetic optimization
     evaluator = criterion_optimization.CachingEvaluator(
         alphabet,
         model,
@@ -496,6 +519,8 @@ def ucb(
         min_diversity=min_diversity,
         max_generations=max_generations,
     )
+
+    # Print results in descending order
     order = np.argsort(best_values)[::-1]
     for i, index in enumerate(order):
         print(
@@ -508,5 +533,6 @@ def main():
     try:
         cli()
     except DatasetError as e:
+        # Special handling for errors in dataset parsing
         click.echo(click.style(e.message, fg="red"))
         sys.exit(1)

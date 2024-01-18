@@ -6,7 +6,18 @@ You just input your dataset and obtain a prediction model, accompanied by detail
 
 
 ## Publication & Citation
-*Will be added in the future.*
+[bioRxiv preprint](https://www.biorxiv.org/content/10.1101/2024.01.12.575432v1)
+```
+@article{Hoffbauer2024,
+  title = {TransMEP: Transfer learning on large protein language models to predict mutation effects of proteins from a small known dataset},
+  url = {http://dx.doi.org/10.1101/2024.01.12.575432},
+  DOI = {10.1101/2024.01.12.575432},
+  publisher = {Cold Spring Harbor Laboratory},
+  author = {Hoffbauer,  Tilman and Strodel,  Birgit},
+  year = {2024},
+  month = jan 
+}
+```
 
 
 ## Installation

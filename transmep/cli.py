@@ -226,7 +226,7 @@ def train(
             get_device(),
         )
     else:
-        # On CPU, the batched approach is faster.
+        # On CPU, the forking approach is faster.
         best_alpha, best_gamma, scores = grid_search_kr_rbf_fork(
             embeddings, y, alphas, gammas, validation_iterations, training_size
         )
